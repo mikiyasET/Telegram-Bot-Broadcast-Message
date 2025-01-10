@@ -36,18 +36,47 @@ async function sendTelegramMessage(data: user, mid: any, jobId: any) {
                 message_id: mid
             },
         });
-    } catch (e) {
+    } catch (e:any) {
         console.log("Error")
         console.log(e)
-        await prisma.broadcast.update({
-            where: {
-                id: jobId
-            },
-            data: {
-                status: broadcast_status.errorPaused
+        const description = e.description;
+        if (e.message.includes('429')) {
+            try {
+                await prisma.broadcast.update({
+                    where: {
+                        id: jobId
+                    },
+                    data: {
+                        status: broadcast_status.errorPaused
+                    }
+                })
+                const seconds = parseInt(e.message.split(" ")[e.message.split(" ").length - 1]);
+                await new Promise(resolve => setTimeout(resolve, (1000 * seconds) + 2000));
+
+                    await axios(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/copyMessage`, {
+                        method: "POST",
+                        data: {
+                            from_chat_id: 353575758,
+                            chat_id: data.tg_id,
+                            message_id: mid
+                        },
+                    });
+
+            } catch (e) {
+                await new Promise(resolve => setTimeout(resolve, 20000));
             }
-        })
-        await new Promise((resolve) => setTimeout(() => resolve, 30000));
+        }
+        if (description === "Forbidden: bot was blocked by the user") {
+            await prisma.user.update({
+                where: {
+                    id: data.id
+                },
+                data: {
+                    status: false
+                }
+            })
+            console.log("User " + data.first_name + " banned")
+        }
     }
 }
 
@@ -60,6 +89,7 @@ const setProgress = async (id: any, progress: number) => {
         },
         data: {
             progress: progress,
+            status: broadcast_status.inProgress,
         }
     })
 }
@@ -81,6 +111,9 @@ const worker = new Worker(
 
         while (true) {
             const users = await prisma.user.findMany({
+                where: {
+                    status: true,
+                },
                 skip: offset,
                 take: batchSize,
             });
