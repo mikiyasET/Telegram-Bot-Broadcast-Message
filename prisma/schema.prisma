@@ -1,0 +1,226 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  name      String?
+  user_id   String   @unique
+  password  String?
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model affiliate {
+  id          String                @id
+  user_id     String                @unique
+  link        String                @unique
+  earnings    Float                 @default(0)
+  available   Float                 @default(0)
+  pending     Float                 @default(0)
+  withdrawn   Float                 @default(0)
+  total       Float                 @default(0)
+  paymentType affiliate_paymentType @default(oneTime)
+  status      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime
+}
+
+model affiliate_history {
+  id           String                   @id
+  user_id      String                   @unique
+  affiliate_id String
+  subscribed   Boolean                  @default(false)
+  status       affiliate_history_status @default(unpaid)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime
+
+  @@index([affiliate_id], map: "affiliate_history_affiliate_id_fkey")
+}
+
+model channel {
+  id        String   @id
+  channelId String   @unique
+  name      String?
+  allowed   Boolean  @default(false)
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model general {
+  id        String      @id
+  key       general_key @unique
+  value     String?
+  status    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime
+}
+
+model plan {
+  id          String       @id
+  title       String       @unique
+  description String?      @db.Text
+  price       Float?
+  duration    Int
+  priority    Int
+  isTrial     Boolean      @default(false)
+  status      plan_status? @default(active)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+}
+
+model subscribers {
+  id         String   @id
+  user_id    String   @unique
+  plan_id    String?
+  start_date DateTime
+  end_date   DateTime
+  reminder   Boolean  @default(false)
+  unlimited  Boolean  @default(false)
+  status     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+
+  @@index([plan_id], map: "subscribers_plan_id_fkey")
+}
+
+model talking {
+  id          String   @id
+  user_id     String   @unique
+  pre_request String?  @db.VarChar(100)
+  request     String?  @db.VarChar(100)
+  pre_data    String?  @db.Text
+  data        String?  @db.Text
+  waiting     Boolean  @default(true)
+  timer       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+}
+
+model transaction {
+  id                         String             @id
+  user_id                    String
+  plan_id                    String?
+  amount                     Float
+  telegram_payment_charge_id String?
+  provider_payment_charge_id String?
+  status                     transaction_status @default(pending)
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime
+
+  @@index([plan_id], map: "transaction_plan_id_fkey")
+  @@index([user_id], map: "transaction_user_id_fkey")
+}
+
+model user {
+  id                 String         @id
+  tg_id              String         @unique @db.VarChar(100)
+  username           String?
+  first_name         String?
+  last_name          String?
+  password           String?
+  usedTrial          Boolean        @default(false)
+  language           user_language? @default(en)
+  status             Boolean        @default(true)
+  banUntil           DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime
+  hasPaidOnce        Boolean        @default(false)
+  invited_by_user_id String?
+
+  @@index([invited_by_user_id], map: "user_invited_by_user_id_fkey")
+}
+
+model withdrawal_request {
+  id            String                           @id
+  user_id       String
+  paymentMethod withdrawal_request_paymentMethod
+  info          String?                          @db.Text
+  status        withdrawal_request_status        @default(pending)
+  createdAt     DateTime                         @default(now())
+  updatedAt     DateTime
+
+  @@index([user_id], map: "withdrawal_request_user_id_fkey")
+}
+
+model broadcast {
+  id        String           @id @default(uuid())
+  mid       String
+  progress  Int              @default(0)
+  status    broadcast_status @default(inProgress)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+enum broadcast_status {
+  inProgress
+  errorPaused
+  completed
+  cancelled
+  failed
+}
+
+enum general_key {
+  PAYMENT_KEY
+  AFFILIATE_PRICE
+}
+
+enum withdrawal_request_paymentMethod {
+  LTC
+  USDT
+  bank
+  subscription
+}
+
+enum affiliate_history_status {
+  paid
+  unpaid
+}
+
+enum withdrawal_request_status {
+  accepted
+  rejected
+  pending
+  completed
+}
+
+enum transaction_status {
+  pending
+  success
+  failed
+}
+
+enum plan_status {
+  active
+  inactive
+  deleted
+}
+
+enum user_language {
+  am
+  ar
+  bn
+  de
+  en
+  es
+  fr
+  hi
+  id
+  pt
+  ru
+  zh
+}
+
+enum affiliate_paymentType {
+  oneTime
+  recurring
+}
